@@ -4,3 +4,4 @@ flake8
 mypy
 isort
 black
+nni==1.5

@@ -16,6 +16,8 @@ PROJECT_PATH_ENV=/project
 PROJECT=ml-recipe-nni
 SETUP_JOB=setup-$(PROJECT)
 TRAIN_JOB=train-$(PROJECT)
+HYPER_TRAIN_MASTER_JOB=train-master-$(PROJECT)
+HYPER_TRAIN_WORKER_JOB=train-worker-$(PROJECT)
 DEVELOP_JOB=develop-$(PROJECT)
 JUPYTER_JOB=jupyter-$(PROJECT)
 TENSORBOARD_JOB=tensorboard-$(PROJECT)
@@ -63,11 +65,11 @@ HTTP_AUTH?=--http-auth
 # If set to `yes`, then wait until the training job gets actually running,
 # and stream logs to the standard output:
 #   make train TRAIN_STREAM_LOGS=nope
-TRAIN_STREAM_LOGS?=yes
+TRAIN_STREAM_LOGS?=no
 
 # Command to run training inside the environment:
-#   make train TRAIN_CMD="python ./train.py"
-TRAIN_CMD?=python -u $(CODE_DIR)/train.py --data $(DATA_DIR)
+#TRAIN_CMD?=USER=root nnictl create --config $(CONFIG_DIR)/config_remote.yml
+TRAIN_CMD?=sleep 2h
 
 # Postfix of training jobs:
 #   make train RUN=experiment-2
@@ -173,6 +175,7 @@ setup: ### Setup remote environment
 		'sleep infinity'
 	$(NEURO) exec --no-key-check -T $(SETUP_JOB) "bash -c 'export DEBIAN_FRONTEND=noninteractive && apt-get -qq update && cat $(PROJECT_PATH_ENV)/apt.txt | tr -d \"\\r\" | xargs -I % apt-get -qq install --no-install-recommends % && apt-get -qq clean && apt-get autoremove && rm -rf /var/lib/apt/lists/*'"
 	$(NEURO) exec --no-key-check -T $(SETUP_JOB) "bash -c 'pip install --progress-bar=off -U --no-cache-dir -r $(PROJECT_PATH_ENV)/requirements.txt'"
+	$(NEURO) exec --no-key-check -T $(SETUP_JOB) "bash -c 'ssh-keygen -f /id_rsa -t rsa -N neuromation -q'"
 	$(NEURO) --network-timeout 300 job save $(SETUP_JOB) $(CUSTOM_ENV)
 	$(NEURO) kill $(SETUP_JOB) || :
 	@touch .setup_done
@@ -588,3 +591,26 @@ _upgrade:
 	git checkout -- $(DATA_DIR) $(CODE_DIR) $(CONFIG_DIR) $(NOTEBOOKS_DIR) $(RESULTS_DIR)
 	git checkout -- .gitignore requirements.txt apt.txt setup.cfg README.md
 	@echo "Some files are successfully changed. Please review the changes using git diff."
+
+.PHONE: hyper-train
+hyper-train: _check_setup upload-config upload-code ### Run a training job (set up env var 'RUN' to specify the training job),
+	$(NEURO) run $(RUN_EXTRA) \
+		--name $(HYPER_TRAIN_MASTER_JOB)-$(RUN) \
+		--tag "target:hyper-train" $(_PROJECT_TAGS) \
+		--preset $(PRESET) \
+		--detach \
+		$(TRAIN_WAIT_START_OPTION) \
+		--volume $(PROJECT_PATH_STORAGE)/$(CODE_DIR):$(PROJECT_PATH_ENV)/$(CODE_DIR):ro \
+		--volume $(PROJECT_PATH_STORAGE)/$(CONFIG_DIR):$(PROJECT_PATH_ENV)/$(CONFIG_DIR):ro \
+		--env PYTHONPATH=$(PROJECT_PATH_ENV) \
+		--env EXPOSE_SSH=yes \
+		--http 8080 \
+		--life-span=0 \
+		--pass-config \
+		$(OPTION_GCP_CREDENTIALS) $(OPTION_AWS_CREDENTIALS) $(OPTION_WANDB_CREDENTIALS) \
+		$(CUSTOM_ENV) \
+		bash -c 'cd $(PROJECT_PATH_ENV) && $(TRAIN_CMD)'
+ifeq ($(TRAIN_STREAM_LOGS), yes)
+	@echo "Streaming logs of the job $(TRAIN_JOB)-$(RUN)"
+	$(NEURO) exec --no-key-check -T $(TRAIN_JOB)-$(RUN) "tail -f /output" || echo -e "Stopped streaming logs.\nUse 'neuro logs <job>' to see full logs."
+endif
