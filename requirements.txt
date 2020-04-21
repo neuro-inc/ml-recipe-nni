@@ -5,3 +5,4 @@ mypy
 isort
 black
 nni==1.5
+certifi>=2020.4.5.1

@@ -1,0 +1,5 @@
+- ip: 127.0.0.1
+  username: root
+  sshKeyPath: /id_rsa
+  passphrase: neuromation
+  port: #WORKER_PORT#

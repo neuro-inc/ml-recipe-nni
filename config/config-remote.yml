@@ -1,0 +1,15 @@
+authorName: Neuromation
+experimentName: example_mnist_nni
+trialConcurrency: #CONCURRENCY#
+maxExecDuration: 1h
+maxTrialNum: 10
+trainingServicePlatform: remote
+useAnnotation: true
+tuner:
+  builtinTunerName: TPE
+  classArgs:
+    optimize_mode: maximize
+trial:
+  command: python3 mnist.py
+  codeDir: ../modules
+  gpuNum: 0
