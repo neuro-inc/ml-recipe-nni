@@ -1,10 +1,11 @@
 authorName: Neuromation
 experimentName: example_mnist_nni
-trialConcurrency: #CONCURRENCY#
+trialConcurrency: {{ worker_count }}
 maxExecDuration: 1h
 maxTrialNum: 10
 trainingServicePlatform: remote
-useAnnotation: true
+searchSpacePath: search_space.json
+useAnnotation: false
 tuner:
   builtinTunerName: TPE
   classArgs:
@@ -12,4 +13,8 @@ tuner:
 trial:
   command: python3 mnist.py
   codeDir: ../modules
-  gpuNum: 0
+machineList: {% for worker_ip in worker_ips %}
+  - ip: {{ worker_ip }}
+    username: root
+    sshKeyPath: /id_rsa
+    passphrase: neuromation {% endfor %}

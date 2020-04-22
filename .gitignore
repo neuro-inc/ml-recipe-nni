@@ -3,6 +3,7 @@
 /config/*.txt
 /config/*.conf
 /config/*.json
+/config/nni-config.yml
 /.setup_done
 /.wandb_sweeps
 

@@ -49,7 +49,7 @@ DATA_DIR_STORAGE?=$(PROJECT_PATH_STORAGE)/$(DATA_DIR)
 # The type of the training machine (run `neuro config show`
 # to see the list of available types):
 #   make jupyter PRESET=cpu-small
-PRESET?=cpu-small
+PRESET?=gpu-small
 
 # Extra options for `neuro run` targets:
 #   make train RUN_EXTRA="--env MYVAR=value"
@@ -68,7 +68,7 @@ HTTP_AUTH?=--http-auth
 TRAIN_STREAM_LOGS?=no
 
 # Command to run training inside the environment:
-TRAIN_CMD?=USER=root nnictl create --config $(CONFIG_DIR)/config-remote.yml
+TRAIN_CMD?=USER=root nnictl create --config $(CONFIG_DIR)/nni-config.yml -f
 
 # Postfix of training jobs:
 #   make train RUN=experiment-2
@@ -519,8 +519,6 @@ ps-hypertrain:  ### List running and pending jobs of hyper-parameter search
 ps-train-all:  ### List all running and pending training jobs
 	$(NEURO) ps --tag "target:train" $(_PROJECT_TAGS)
 
-
-.PHONY: _upgrade
 _upgrade:
 	@if ! (git status | grep "nothing to commit"); then echo "Please commit or stash changes before upgrade."; exit 1; fi
 	@echo "Applying the latest Neuro Project Template to this project..."
@@ -536,28 +534,53 @@ _upgrade:
 	git checkout -- .gitignore requirements.txt apt.txt setup.cfg README.md
 	@echo "Some files are successfully changed. Please review the changes using git diff."
 
-.PHONY: hyper-train
-hypertrain: _check_setup upload-config upload-code ### Run a hyperparameter tuning training job (set up env var 'RUN' to specify the training job),
+.PHONY: _start_hypertrain-master
+_start_hypertrain-master:
 	$(NEURO) run $(RUN_EXTRA) \
 		--name $(HYPER_TRAIN_MASTER_JOB)-$(RUN) \
 		--tag "target:hypertrain" $(_PROJECT_TAGS) \
-		--preset $(PRESET) \
+		--preset cpu-small \
 		--detach \
 		$(TRAIN_WAIT_START_OPTION) \
 		--volume $(PROJECT_PATH_STORAGE)/$(CODE_DIR):$(PROJECT_PATH_ENV)/$(CODE_DIR):ro \
 		--volume $(PROJECT_PATH_STORAGE)/$(CONFIG_DIR):$(PROJECT_PATH_ENV)/$(CONFIG_DIR):rw \
 		--env PYTHONPATH=$(PROJECT_PATH_ENV) \
-		--env EXPOSE_SSH=yes \
 		--http 8080 \
 		--life-span=0 \
 		--pass-config \
 		--browse \
 		$(OPTION_GCP_CREDENTIALS) $(OPTION_AWS_CREDENTIALS) $(OPTION_WANDB_CREDENTIALS) \
 		$(CUSTOM_ENV) \
-		bash -c 'cd $(PROJECT_PATH_ENV)/$(CONFIG_DIR) && N_JOBS=$(N_JOBS) bash prepare-config.sh && cd $(PROJECT_PATH_ENV) && $(TRAIN_CMD)'
+		bash -c 'cd $(PROJECT_PATH_ENV)/$(CONFIG_DIR) && python3 prepare-nni-config.py && cd $(PROJECT_PATH_ENV) && $(TRAIN_CMD)'
+
+.PHONE: _start-hypertrain-workers
+_start-hypertrain-workers:
+	@echo "Running $(N_JOBS) worker jobs ..." && \
+	for index in `seq 1 $(N_JOBS)` ; do \
+	 echo "Starting job $$index..." ; \
+	 $(NEURO) run $(RUN_EXTRA) \
+	 --name $(HYPER_TRAIN_WORKER_JOB)-$$index-$(RUN) \
+	 --tag "target:hypertrain" --tag "hypertrain:worker" $(_PROJECT_TAGS) \
+	 --preset $(PRESET) \
+	 --detach \
+	 $(TRAIN_WAIT_START_OPTION) \
+	 --volume $(PROJECT_PATH_STORAGE)/$(CODE_DIR):$(PROJECT_PATH_ENV)/$(CODE_DIR):ro \
+	 --volume $(PROJECT_PATH_STORAGE)/$(CONFIG_DIR):$(PROJECT_PATH_ENV)/$(CONFIG_DIR):ro \
+	 --env PYTHONPATH=$(PROJECT_PATH_ENV) \
+	 --env EXPOSE_SSH=yes \
+	 --life-span=0 \
+	 $(OPTION_GCP_CREDENTIALS) $(OPTION_AWS_CREDENTIALS) $(OPTION_WANDB_CREDENTIALS) \
+	 $(CUSTOM_ENV) \
+	 bash -c 'sleep infinity' ; \
+	 echo "\n"; \
+	done; \
+	echo "Started $(N_JOBS) hyperparameter search worker jobs"
 
 .PHONY: kill-hypertrain
 kill-hypertrain:  ### Terminate hyper-parameter search training jobs
-	jobs=`neuro -q ps --tag "target:hyper-train" $(_PROJECT_TAGS) | tr -d "\r"` && \
+	jobs=`neuro -q ps --tag "target:hypertrain" $(_PROJECT_TAGS) | tr -d "\r"` && \
 	[ ! "$$jobs" ] || $(NEURO) kill $$jobs
 
+.PHONY: hypertrain
+hypertrain: _check_setup upload-config upload-code _start-hypertrain-workers _start_hypertrain-master ### Run a hyperparameter tuning training job (set up env var 'RUN' to specify the training job),
+	echo Hyperparameter tuning started
