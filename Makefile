@@ -66,6 +66,7 @@ HTTP_AUTH?=--http-auth
 TRAIN_STREAM_LOGS?=yes
 
 # Command to run training inside the environment:
+#   make train TRAIN_CMD="python ./train.py"
 TRAIN_CMD?=python -u $(CODE_DIR)/train.py --data $(DATA_DIR)
 
 # Postfix of training jobs:
@@ -572,6 +573,7 @@ ps-hypertrain:  ### List running and pending jobs of the latest hyper-parameter 
 ps-train-all:  ### List all running and pending training jobs
 	$(NEURO) ps --tag "target:train" $(_PROJECT_TAGS)
 
+
 .PHONY: _upgrade
 _upgrade:
 	@if ! (git status | grep "nothing to commit"); then echo "Please commit or stash changes before upgrade."; exit 1; fi
@@ -590,4 +592,3 @@ _upgrade:
 
 # Hyper-parameter Tuning with NNI
 include nni.mk
-
