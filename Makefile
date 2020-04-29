@@ -589,3 +589,6 @@ _upgrade:
 	git checkout -- $(DATA_DIR) $(CODE_DIR) $(CONFIG_DIR) $(NOTEBOOKS_DIR) $(RESULTS_DIR)
 	git checkout -- .gitignore requirements.txt apt.txt setup.cfg README.md
 	@echo "Some files are successfully changed. Please review the changes using git diff."
+
+# Hyper-parameter Tuning with NNI
+include nni.mk
