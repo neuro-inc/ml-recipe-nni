@@ -1,7 +1,7 @@
 ##### HYPERPARAMETER TRAINING WITH NNI #####
 HYPER_TRAIN_MASTER_JOB=train-master-$(PROJECT)
 HYPER_TRAIN_WORKER_JOB=train-worker-$(PROJECT)
-TRAIN_CMD?=USER=root nnictl create --config $(CONFIG_DIR)/nni-config.yml -f
+TRAIN_CMD=USER=root nnictl create --config $(CONFIG_DIR)/nni-config.yml -f
 
 .PHONY: _start_hypertrain-master
 _start_hypertrain-master:
