@@ -1,10 +1,10 @@
 # ML Recipe NNI
 
-This is a sample project illustrating integration of NNI with Neu.ro
+This is a sample project illustrating integration of [NNI](https://github.com/microsoft/nni) with [Neu.ro](https://neu.ro).
 
 ## Quick Start
 
-Sign up at [neu.ro](https://neu.ro) and setup your local machine according to [instructions](https://docs.neu.ro).
+Sign up at [Neu.ro](https://neu.ro) and setup your local machine according to [instructions](https://docs.neu.ro/getting-started#installing-cli).
  
 Then run:
 
