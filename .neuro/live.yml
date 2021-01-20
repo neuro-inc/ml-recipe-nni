@@ -92,7 +92,7 @@ jobs:
     args:
       volumes_project_remote: $[[ volumes.project.remote ]]
   
-  worker:
+  nni_worker:
     image: $[[ images.myimage.ref ]]
     life_span: 1d
     multi: true
@@ -106,7 +106,7 @@ jobs:
     bash: |
       sleep infinity
 
-  master:
+  nni_master:
     image: $[[ images.myimage.ref ]]
     life_span: 1d
     http_port: 8080
@@ -120,6 +120,6 @@ jobs:
       - $[[ volumes.config.ref ]]
       - $[[ volumes.project.ref ]]
     bash: |
-      cd $[[ volumes.config.mount ]] && python3 prepare-nni-config.py 
+      cd $[[ volumes.config.mount ]] && python3 prepare-nni-config.py
       cd $[[ volumes.project.mount ]] && USER=root nnictl create --config $[[ volumes.config.mount ]]/nni-config.yml -f
 
