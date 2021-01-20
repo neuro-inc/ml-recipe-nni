@@ -10,6 +10,6 @@ Then run:
 
 ```shell
 neuro login
-make setup
+nf build myimage
 make hypertrain
 ```
