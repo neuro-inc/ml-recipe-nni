@@ -1,8 +1,7 @@
 kind: live
 
 defaults:
-  # preset: gpu-k80-small-p
-  preset: cpu-small
+  preset: gpu-k80-small-p
   life_span: 1d
 
 volumes:
@@ -115,6 +114,7 @@ jobs:
     pass_config: true
     detach: true
     browse: true
+    preset: cpu-small
     volumes:
       - $[[ volumes.code.ref_ro ]]
       - $[[ volumes.config.ref ]]
