@@ -1,6 +1,6 @@
-neuro-cli
-neuro-sdk
-neuro-flow
+neuro-cli==21.1.13
+neuro-sdk==21.1.13
+neuro-flow==21.1.4
 flake8
 mypy
 isort
