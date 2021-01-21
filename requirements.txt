@@ -1,10 +1,10 @@
-neuromation>=20.4.6
-wandb==0.8.28
+neuro-cli==21.1.13
+neuro-sdk==21.1.13
+neuro-flow==21.1.4
 flake8
 mypy
 isort
 black
 certifi>=2020.4.5.1
 Jinja2>=2.11.2
-aiodns>=2.0.0
-nni==1.5
+nni==2.0

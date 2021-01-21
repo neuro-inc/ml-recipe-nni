@@ -1,0 +1,125 @@
+kind: live
+
+defaults:
+  preset: gpu-k80-small-p
+  life_span: 1d
+
+volumes:
+  code:
+    remote: storage:$[[ flow.project_id ]]/modules
+    mount: /project/code
+    local: modules
+  config:
+    remote: storage:$[[ flow.project_id ]]/config
+    mount: /project/config
+    local: config
+  project:
+    remote: storage:$[[ flow.project_id ]]
+    mount: /project
+    local: .
+
+images:
+  myimage:
+    ref: image:$[[ flow.project_id ]]
+    dockerfile: $[[ flow.workspace ]]/Dockerfile
+    context: $[[ flow.workspace ]]/
+    build_preset: cpu-small
+
+jobs:
+
+  remote_debug:
+    action: gh:neuro-actions/remote_debug@master
+    args:
+      image: $[[ images.myimage.ref ]]
+      volumes_data_remote: $[[ volumes.data.remote ]]
+      volumes_code_remote: $[[ volumes.code.remote ]]
+      volumes_config_remote: $[[ volumes.config.remote ]]
+      volumes_results_remote: $[[ volumes.results.remote ]]
+
+  train:
+    image: $[[ images.myimage.ref ]]
+    detach: False
+    life_span: 10d
+    volumes:
+      - $[[ volumes.data.ref_ro ]]
+      - $[[ volumes.code.ref_ro ]]
+      - $[[ volumes.config.ref_ro ]]
+      - $[[ volumes.results.ref_rw ]]
+      - $[[ volumes.project.ref ]]
+    env:
+      EXPOSE_SSH: "yes"
+      PYTHONPATH: $[[ volumes.code.mount ]]
+    bash: |
+        cd $[[ volumes.project.mount ]]
+        python -u $[[ volumes.code.mount ]]/train.py --data $[[ volumes.data.mount ]]
+
+  multitrain:
+    image: $[[ images.myimage.ref ]]
+    detach: False
+    life_span: 10d
+    volumes:
+      - $[[ volumes.data.ref_ro ]]
+      - $[[ volumes.code.ref_ro ]]
+      - $[[ volumes.config.ref_ro ]]
+      - $[[ volumes.results.ref_rw ]]
+    env:
+      EXPOSE_SSH: "yes"
+      PYTHONPATH: $[[ volumes.code.mount ]]
+    multi: true
+    bash: |
+        cd $[[ volumes.project.mount ]]
+        python $[[ volumes.code.mount ]]/train.py --data $[[ volumes.data.mount ]] $[[ multi.args ]]
+
+  jupyter:
+    action: gh:neuro-actions/jupyter@master
+    args:
+      image: $[[ images.myimage.ref ]]
+      preset: gpu-k80-small-p
+      multi_args: $[[ multi.args ]]
+      volumes_data_remote: $[[ volumes.data.remote ]]
+      volumes_code_remote: $[[ volumes.code.remote ]]
+      volumes_config_remote: $[[ volumes.config.remote ]]
+      volumes_notebooks_remote: $[[ volumes.notebooks.remote ]]
+      volumes_results_remote: $[[ volumes.results.remote ]]
+
+  tensorboard:
+    action: gh:neuro-actions/tensorboard@master
+    args:
+      volumes_results_remote: $[[ volumes.results.remote ]]
+
+  filebrowser:
+    action: gh:neuro-actions/filebrowser@master
+    args:
+      volumes_project_remote: $[[ volumes.project.remote ]]
+  
+  nni_worker:
+    image: $[[ images.myimage.ref ]]
+    life_span: 1d
+    multi: true
+    detach: true
+    volumes:
+      - $[[ volumes.code.ref_ro ]]
+      - $[[ volumes.config.ref_ro ]]
+      - $[[ volumes.project.ref ]]
+    env:
+      EXPOSE_SSH: "yes"
+    bash: |
+      sleep infinity
+
+  nni_master:
+    image: $[[ images.myimage.ref ]]
+    life_span: 1d
+    http_port: 8080
+    http_auth: false
+    pass_config: true
+    detach: true
+    browse: true
+    preset: cpu-small
+    volumes:
+      - $[[ volumes.code.ref_ro ]]
+      - $[[ volumes.config.ref ]]
+      - $[[ volumes.project.ref ]]
+    bash: |
+      cd $[[ volumes.config.mount ]] && python3 prepare-nni-config.py
+      cd $[[ volumes.project.mount ]] && USER=root nnictl create --config $[[ volumes.config.mount ]]/nni-config.yml -f
+
